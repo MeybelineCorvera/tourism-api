@@ -130,6 +130,18 @@ router.get('/sitios/project', async (req, res) => {
     const { ciudadName } = req.query;
 
     const pipeline = [
+      // Lookup categoría
+      {
+        $lookup: {
+          from: "categorias",
+          localField: "categoriaId",
+          foreignField: "_id",
+          as: "categoria"
+        }
+      },
+      { $unwind: "$categoria" },
+
+      // Lookup ciudad
       {
         $lookup: {
           from: "ciudades",
@@ -140,10 +152,11 @@ router.get('/sitios/project', async (req, res) => {
       },
       { $unwind: "$ciudad" },
 
+      // Lookup país
       {
         $lookup: {
-          from: "pais",
-          localField: "ciudad.paisId",
+          from: "paises",
+          localField: "paisId",
           foreignField: "_id",
           as: "pais"
         }
@@ -151,30 +164,31 @@ router.get('/sitios/project', async (req, res) => {
       { $unwind: "$pais" }
     ];
 
-    // Filtro por ciudad opcional
+    // Filtrar por ciudad si viene en query
     if (ciudadName) {
       pipeline.push({
         $match: { "ciudad.nombre": ciudadName }
       });
     }
 
-    // PROJECT
+    // Proyección final
     pipeline.push({
       $project: {
         _id: 0,
         nombre: 1,
-        categoria: 1,
-        pais: "$pais.nombre"
+        "pais.nombre": 1,
+        "categoria.nombre": 1
       }
     });
 
     const results = await Sitio.aggregate(pipeline);
     res.json(results);
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
+
 
 
 
@@ -234,7 +248,7 @@ router.get("/eventos/project", async (req, res) => {
       // Unir con ciudad
       {
         $lookup: {
-          from: "ciudads",
+          from: "ciudades",
           localField: "ciudadId",
           foreignField: "_id",
           as: "ciudad"
@@ -245,7 +259,7 @@ router.get("/eventos/project", async (req, res) => {
       // Unir con país
       {
         $lookup: {
-          from: "pais",
+          from: "paises",
           localField: "paisId",
           foreignField: "_id",
           as: "pais"
