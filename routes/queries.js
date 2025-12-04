@@ -124,37 +124,38 @@ router.get('/paises/exclude-category', async (req, res) => {
 6) Project solo nombre, país y categoría
    GET /api/sitios/project?ciudadName=
 ============================================================ */
+// PROJECT: Proyectar solo nombre, país y categoría
 router.get('/sitios/project', async (req, res) => {
-  try {
-    const { ciudadName } = req.query;
+  const { ciudadName } = req.query;
 
-    let ciudad = null;
+  try {
+    const pipeline = [];
+
+    // Coincidencia por ciudad (opcional)
     if (ciudadName) {
-      ciudad = await Ciudad.findOne({ nombre: ciudadName });
+      pipeline.push({
+        $match: { ciudad: ciudadName }
+      });
     }
 
-    const filter = ciudad ? { ciudadId: ciudad._id } : {};
+    // Proyección
+    pipeline.push({
+      $project: {
+        _id: 0,
+        nombre: 1,
+        pais: 1,
+        categoria: 1
+      }
+    });
 
-    const sitios = await Sitio.find(filter)
-      .select('nombre categoriaId ciudadId')
-      .populate('categoriaId', 'nombre')
-      .populate({
-        path: 'ciudadId',
-        select: 'nombre paisId',
-        populate: { path: 'paisId', model: 'Pais', select: 'nombre' }
-      });
+    const results = await Sitio.aggregate(pipeline);
+    res.json(results);
 
-    const out = sitios.map(s => ({
-      nombre: s.nombre,
-      pais: s.ciudadId?.paisId?.nombre || null,
-      categoria: s.categoriaId?.nombre || null
-    }));
-
-    res.json(out);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
+
 
 /* ============================================================
 7) Ordenar sitios por número de visitantes
@@ -206,28 +207,26 @@ router.get('/sitios/count-by-country', async (req, res) => {
 9) Detalles completos de eventos
    GET /api/eventos/details
 ============================================================ */
-router.get('/eventos/details', async (req, res) => {
+router.get("/eventos/project", async (req, res) => {
   try {
-    const eventos = await Evento.find()
-      .populate({
-        path: 'ciudadId',
-        populate: { path: 'paisId', select: 'nombre' }
-      })
-      .lean();
+    const results = await Evento.aggregate([
+      {
+        $project: {
+          _id: 0,
+          nombre: 1,
+          fecha: 1,
+          descripcion: 1,
+          lugar: 1
+        }
+      }
+    ]);
 
-    const out = eventos.map(e => ({
-      nombre: e.nombre,
-      descripcion: e.descripcion,
-      fecha: e.fecha,
-      ciudad: e.ciudadId?.nombre || null,
-      pais: e.ciudadId?.paisId?.nombre || null
-    }));
-
-    res.json(out);
+    res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 /* ============================================================
 10) Sitio más visitado por país
