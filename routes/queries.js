@@ -141,7 +141,6 @@ router.get('/sitios/project', async (req, res) => {
       },
       { $unwind: "$categoria" },
 
-      // Lookup ciudad
       {
         $lookup: {
           from: "ciudades",
@@ -152,16 +151,16 @@ router.get('/sitios/project', async (req, res) => {
       },
       { $unwind: "$ciudad" },
 
-      // Lookup país
       {
         $lookup: {
           from: "paises",
-          localField: "paisId",
+          localField: "ciudad.paisId",
           foreignField: "_id",
           as: "pais"
         }
       },
-      { $unwind: "$pais" }
+      { $unwind: "$pais" },
+
     ];
 
     // Filtrar por ciudad si viene en query
@@ -256,11 +255,10 @@ router.get("/eventos/project", async (req, res) => {
       },
       { $unwind: "$ciudad" },
 
-      // Unir con país
       {
         $lookup: {
           from: "paises",
-          localField: "paisId",
+          localField: "ciudad.paisId",
           foreignField: "_id",
           as: "pais"
         }
