@@ -132,7 +132,7 @@ router.get('/sitios/project', async (req, res) => {
     const pipeline = [
       {
         $lookup: {
-          from: "ciudads",
+          from: "ciudades",
           localField: "ciudadId",
           foreignField: "_id",
           as: "ciudad"
