@@ -121,40 +121,61 @@ router.get('/paises/exclude-category', async (req, res) => {
 });
 
 /* ============================================================
-6) Project solo nombre, país y categoría
+6) Project solo nombre, país y categoría 
    GET /api/sitios/project?ciudadName=
 ============================================================ */
-// PROJECT: Proyectar solo nombre, país y categoría
+
 router.get('/sitios/project', async (req, res) => {
-  const { ciudadName } = req.query;
-
   try {
-    const pipeline = [];
+    const { ciudadName } = req.query;
 
-    // Coincidencia por ciudad (opcional)
+    const pipeline = [
+      {
+        $lookup: {
+          from: "ciudads",
+          localField: "ciudadId",
+          foreignField: "_id",
+          as: "ciudad"
+        }
+      },
+      { $unwind: "$ciudad" },
+
+      {
+        $lookup: {
+          from: "pais",
+          localField: "ciudad.paisId",
+          foreignField: "_id",
+          as: "pais"
+        }
+      },
+      { $unwind: "$pais" }
+    ];
+
+    // Filtro por ciudad opcional
     if (ciudadName) {
       pipeline.push({
-        $match: { ciudad: ciudadName }
+        $match: { "ciudad.nombre": ciudadName }
       });
     }
 
-    // Proyección
+    // PROJECT
     pipeline.push({
       $project: {
         _id: 0,
         nombre: 1,
-        pais: 1,
-        categoria: 1
+        categoria: 1,
+        pais: "$pais.nombre"
       }
     });
 
     const results = await Sitio.aggregate(pipeline);
     res.json(results);
 
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 
 /* ============================================================
@@ -210,13 +231,60 @@ router.get('/sitios/count-by-country', async (req, res) => {
 router.get("/eventos/project", async (req, res) => {
   try {
     const results = await Evento.aggregate([
+      // Unir con ciudad
+      {
+        $lookup: {
+          from: "ciudads",
+          localField: "ciudadId",
+          foreignField: "_id",
+          as: "ciudad"
+        }
+      },
+      { $unwind: "$ciudad" },
+
+      // Unir con país
+      {
+        $lookup: {
+          from: "pais",
+          localField: "paisId",
+          foreignField: "_id",
+          as: "pais"
+        }
+      },
+      { $unwind: "$pais" },
+
+      // Unir con sitio turístico
+      {
+        $lookup: {
+          from: "sitios",
+          localField: "sitioId",
+          foreignField: "_id",
+          as: "sitio"
+        }
+      },
+      { $unwind: "$sitio" },
+
+      // Proyección final
       {
         $project: {
           _id: 0,
           nombre: 1,
           fecha: 1,
           descripcion: 1,
-          lugar: 1
+          lugar: 1,
+          ciudad: {
+            nombre: "$ciudad.nombre",
+            poblacion: "$ciudad.poblacion"
+          },
+          pais: {
+            nombre: "$pais.nombre",
+            continente: "$pais.continente"
+          },
+          sitioTuristico: {
+            nombre: "$sitio.nombre",
+            categoria: "$sitio.categoria",
+            visitantes: "$sitio.visitantes"
+          }
         }
       }
     ]);
